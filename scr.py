@@ -1,4 +1,6 @@
 import pandas as pd
+import numpy as np
+import sklearn
 '''
 # See adult.names
 columns = ["age", "workclass", "fnlwgt", "education", "education-num",
@@ -133,12 +135,18 @@ from sklearn.naive_bayes import MultinomialNB
 gnb = GaussianNB()
 mnb = MultinomialNB()
 
-y_pred = gnb.fit(iris.data, iris.target).predict(iris.data)
+#y_pred = gnb.fit(iris.data, iris.target).predict(iris.data)
 #print("Number of mislabeled points out of a total %d points : %d"
 #      % (iris.data.shape[0],(iris.target != y_pred).sum()))
 
 clat_target["income"] = 1
-gnbf = mnb.fit(clat_data.values, clat_target.values)
+#gnbf = mnb.fit(clat_data.values, clat_target.values)
+
+
+
+
+
+
 
 
 
@@ -148,12 +156,11 @@ import functools
 
 class GaussianNaiveBayes(object):
     def __init__(self):
-        #self.prev_targets = []
-        self.prev_targets = [iris.target[0], iris.target[1], iris.target[50], iris.target[100]]
+        self.prev_targets = []
+        #self.prev_targets = [iris.target[0], iris.target[1], iris.target[50], iris.target[100]]
         #self.prev_unique_targets = []
-        self.prev_unique_targets = sorted(list(set(self.prev_targets)))
 
-        #self.prev_variances = []
+        self.prev_variances = []
         #1st_feature_var = var(iris.data[0][0], iris.data[1][0], iris.data[2][0]...)
         #self.prev_variances =
 
@@ -163,12 +170,18 @@ class GaussianNaiveBayes(object):
 
 
 
-
-
-        self.features = []#{}
-        self.feature_count = Counter()
+        #self.features = []#{}
+        #self.feature_count = Counter()
         # How many samples already loaded into object
-        self.sample_count = 0
+        #self.sample_count = 0
+
+    @property
+    def prev_unique_targets(self):
+        return sorted(list(set(self.prev_targets)))
+
+    @property
+    def prev_count(self):
+        return len(self.prev_targets)
 
     '''
     def probability_of_given_evidence(self, target):
@@ -198,21 +211,65 @@ class GaussianNaiveBayes(object):
 
         print self.features
         probability_target = self.probability_of_given_evidence(target)
-   '''
+    '''
+
+    #np.mean(li)
+    #np.variance(li)
+
+    # Now we just need to calculate the initial mean and variance values
+
+    # Another implementation would be to use the sum of the values and count
+    # of a given feature
+    def mean(self, prev_mean, prev_count, curr_value):
+        curr_count = prev_count + 1
+        return ((curr_count - 1) * prev_mean + curr_value) / float(curr_count)
+
+
+    # See incremental algorithm:
+    # http://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+    # To calculate variance from previous variance and nr of values for a given
+    # feature.
+    # Saves us from having to store all values of a given feature!!!
+    def variance(self, prev_variance, prev_count, curr_value, curr_mean, prev_mean):
+        curr_count = prev_count + 1
+        k = (curr_count - 1) * prev_variance
+        numerator = k + (curr_value - prev_mean) * (curr_value - curr_mean)
+        return numerator / float(curr_count)
+
+    # Allows bulk training
+    def train(self, data, targets):
+        if len(data) != len(targets):
+            raise ValueError("data and target don't correspond")
+        for row, target in zip(data, targets):
+            self.train_row(row, target)
+
 
     def train_row(self, row, target):
         self.prev_targets.append(target)
-        self.prev_unique_targets = sorted(list(set(self.prev_targets)))
 
-        #for i in row:
-        #    prev_variances.append()
+        # on initial train
+        if not self.prev_variances:
+            for value in row:
+                # Mean of only one value is the value
+                self.prev_means.append(value)
+                # Variance of only one element is 0
+                self.prev_variances.append(0)
+
+        for m, value in enumerate(row):
+            mean = self.mean(self.prev_means[m], self.prev_count, value)
+            variance = self.variance(self.prev_variances[m], self.prev_count,
+                                     value, mean, self.prev_means[m])
+            # update old values
+            self.prev_means[m] = mean
+            self.prev_variances[m] = variance
+
+            # can you do this mathemat?
+            # No!!! But isn't there a way to calc witout keeping all the single
+            # values?
+            #prev_variances[m] = np.var(prev_variances[m] + np.var(value))
         #self.prev_variances.append(
         #1st_feature_var = var(iris.data[0][0], iris.data[1][0], iris.data[2][0]...)
         #self.prev_variances =
-
-        self.prev_means = []
-
-        pass
 
     def calculate_gaussian_evidence_likelyhood(self, value, m):
         feature_variance = self.prev_variances[m]
@@ -226,34 +283,57 @@ class GaussianNaiveBayes(object):
     # non_normalized_posterior
     # Actually this is posterior*normalizing constant
     def calculate_posterior(self, row, target, n):
-        #P(income 1)
-        prior = self.prev_targets.count(target)/float(self.prev_targets)
+        prior = self.prev_targets.count(target)/float(len(self.prev_targets))
         evidence_likelyhoods = []
         for m, value in enumerate(row):
-            gel = calculate_gaussian_evidence_likelyhood(value, m)
+            gel = self.calculate_gaussian_evidence_likelyhood(value, m)
             evidence_likelyhoods.append(gel)
-        #evidence_likelyhood =
 
-        # We don't need this
-        #normalizing_constant =
-        #
-        #P(age|income 1)
         mult = lambda a, b: a * b
         return prior * functools.reduce(mult, evidence_likelyhoods)
 
 
     def predict(self, row):
-        posteriors = []
-        for n, target in enumerate(self.prev_targets):
-            posteriors.append(calculate_posterior(row, target, n))
-        return max(posteriors)
+        posteriors = {}
+        for n, target in enumerate(self.prev_unique_targets):
+            posteriors[target] = self.calculate_posterior(row, target, n)
+
+        result = max(zip(posteriors.values(), posteriors.keys()))
+        return result[1]
         # self.current_posterios : {0:1.23, 1:2.5, ...}
         #return biggest_value(current_posteriors)
 
 
 
+ird_train = iris.data[:149]
+irt_train = iris.target[:149]
+
+ird_test = iris.data[-1]
+irt_test = iris.target[-1]
+
+
+irrd_train = np.array([iris.data[0], iris.data[1], iris.data[50]])
+irrt_train = np.array([iris.target[0], iris.target[1], iris.target[50]])
+
+irrd_test = iris.data[2]
+
+irrt_test = iris.target[2]
 
 
 
+gnb = GaussianNaiveBayes()
 
+#gnb.train_row(irrd_train[0], irrt_train[0])
 
+#gnb.train_row(irrd_train[1], irrt_train[1])
+
+#gnb.train_row(irrd_train[2], irrt_train[2])
+
+gnb.train(ird_train, irt_train)
+
+gnb.predict(iris.data[0])
+
+skgnb = sklearn.naive_bayes.GaussianNB()
+skgnb.fit(ird_train, irt_train)
+
+skgnb.predict(iris.data[0])
