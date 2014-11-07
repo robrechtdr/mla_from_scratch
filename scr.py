@@ -155,6 +155,7 @@ import math
 import functools
 from collections import OrderedDict
 
+
 # Todo
 # prepend _ to all method names except train and predict
 # do this after train is made flexible enough to also accept a
@@ -280,12 +281,6 @@ class GaussianNaiveBayes(object):
         else:
             self.targets[target] += 1
 
-
-        # 2 q's here in train:
-        # Do I need to alter prev_count?
-        # prev_count should be named count, it instantly updates as soon
-        # as new target is introduced, doesn't update with same cycle as
-        # mean and variance.
         ss_ind = self.get_summary_statistic_index(target)
         t_count = self.targets[target]
         # Perhaps change self.prev_means in self.means, use new_mean instead of mean
@@ -338,6 +333,15 @@ class GaussianNaiveBayes(object):
         evidence_likelyhoods = []
         for m, value in enumerate(row):
             gel = self.calculate_gaussian_evidence_likelyhood(value, n, m)
+            # A correction on the naive bayes alg to avoid incapability
+            # of prediction in case of one or more zero values evidence
+            # likelyhoods per target
+            if gel == 0:
+                # Because in the end all evidence likelyhoods are multiplied,
+                # the algorithm will completely fail to predict
+                # if there is one zero valued variance or more per target.
+                # So use a negligibly small value instead.
+                gel = 10**-10
             evidence_likelyhoods.append(gel)
 
         mult = lambda a, b: a * b
@@ -354,8 +358,6 @@ class GaussianNaiveBayes(object):
         result = max(zip(posteriors.values(), posteriors.keys()))
         print posteriors
         return result[1]
-        # self.current_posterios : {0:1.23, 1:2.5, ...}
-        #return biggest_value(current_posteriors)
 
 
 
@@ -383,7 +385,14 @@ gnb.train_row(irrd_train[1], irrt_train[1])
 
 gnb.train_row(irrd_train[2], irrt_train[2])
 '''
-gnb.train(ird_train, irt_train)
+gnb.train(irrd_train, irrt_train)
+#gnb.train(ird_train, irt_train)
+skgnb = sklearn.naive_bayes.GaussianNB()
+fi = skgnb.fit(irrd_train, irrt_train)
+
+
+
+
 '''
 gnb.predict(iris.data[0])
 
