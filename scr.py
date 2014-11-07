@@ -163,59 +163,12 @@ from collections import OrderedDict
 class GaussianNaiveBayes(object):
     def __init__(self):
         self.targets = OrderedDict()
-        #self.targets = [iris.target[0], iris.target[1], iris.target[50], iris.target[100]]
-        #self.prev_unique_targets = []
-
         self.prev_variances = []
-        #self.prev_variances = []
-        #1st_feature_var = var(iris.data[0][0], iris.data[1][0], iris.data[2][0]...)
-        #self.prev_variances =
-
         self.prev_means = []
-        #self.prev_means = []
-        # prev row for prediction
-        #self.prev_fp_row = None
-
-
-
-        #self.features = []#{}
-        #self.feature_count = Counter()
-        # How many samples already loaded into object
-        #self.sample_count = 0
 
     @property
     def prev_unique_targets(self):
         return self.targets.keys()
-
-    '''
-    def probability_of_given_evidence(self, target):
-        prob_sex = self.feature_count[" Male"]
-
-        #return probability
-        pass
-
-    def on_initial_train(self, row):
-        # Should only need to happen on first training
-        # Make unnames list of features
-        for n, i in enumerate(row):
-            self.features.append(Counter())
-
-    def train_row(self, row, target):
-        if not self.features:
-            self.on_initial_train(row)
-            #for n, i in enumerate(row):
-            #    self.features.append(Counter())
-        ##########
-        self.prev_unique_targets = sorted(list(set(self.targets)))
-
-        self.sample_count += 1
-
-        for feature_values, value in zip(self.features, row):
-            feature_values[value] += 1
-
-        print self.features
-        probability_target = self.probability_of_given_evidence(target)
-    '''
 
     #np.mean(li)
     #np.variance(li)
@@ -243,17 +196,17 @@ class GaussianNaiveBayes(object):
         numerator = k + (curr_value - prev_mean) * (curr_value - curr_mean)
         return numerator / float(t_count)
 
-    # Allows bulk training
-    def train(self, data, targets):
+    # Allows bulk fiting
+    def fit(self, data, targets):
         if len(data) != len(targets):
             raise ValueError("data and target don't correspond")
         for row, target in zip(data, targets):
-            self.train_row(row, target)
+            self.fit_row(row, target)
 
 
-    def train_row(self, row, target):
+    def fit_row(self, row, target):
         '''
-        # On initial train
+        # On initial fit
         if not self.targets:
             self.prev_means.append([])
             self.prev_variances.append([])
@@ -348,9 +301,7 @@ class GaussianNaiveBayes(object):
         return prior * functools.reduce(mult, evidence_likelyhoods)
 
 
-    def predict(self, row):
-        if not self.targets:
-            raise Exception("Can't predict without any training")
+    def predict_row(self, row):
         posteriors = {}
         for n, target in enumerate(self.prev_unique_targets):
             posteriors[target] = self.calculate_posterior(row, target, n)
@@ -359,8 +310,31 @@ class GaussianNaiveBayes(object):
         print posteriors
         return result[1]
 
+    def predict(self, data):
+        if not self.targets:
+            raise Exception("Can't predict without any training")
+
+        result = []
+        for row in data:
+            result.append(self.predict_row(row))
+        return np.array(result)
 
 
+from sklearn import cross_validation
+data_train, data_test, target_train, target_test = cross_validation.train_test_split(iris.data, iris.target, test_size=0.3, random_state=0)
+
+gnb = GaussianNaiveBayes()
+gnb.fit(data_train, target_train)
+
+sk_gnb = sklearn.naive_bayes.GaussianNB()
+sk_gnb.fit(data_train, target_train)
+
+
+gnb.predict(data_test)
+sk_gnb.predict(data_test)
+
+
+'''
 ird_train = iris.data[:149]
 irt_train = iris.target[:149]
 
@@ -374,10 +348,9 @@ irrt_train = np.array([iris.target[0], iris.target[1], iris.target[50]])
 irrd_test = iris.data[2]
 
 irrt_test = iris.target[2]
+'''
 
 
-
-gnb = GaussianNaiveBayes()
 '''
 gnb.train_row(irrd_train[0], irrt_train[0])
 
@@ -385,11 +358,12 @@ gnb.train_row(irrd_train[1], irrt_train[1])
 
 gnb.train_row(irrd_train[2], irrt_train[2])
 '''
+'''
 gnb.train(irrd_train, irrt_train)
 #gnb.train(ird_train, irt_train)
 skgnb = sklearn.naive_bayes.GaussianNB()
 fi = skgnb.fit(irrd_train, irrt_train)
-
+'''
 
 
 
