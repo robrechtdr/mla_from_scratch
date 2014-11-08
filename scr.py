@@ -156,10 +156,6 @@ import functools
 from collections import OrderedDict
 
 
-# Todo
-# prepend _ to all method names except train and predict
-# do this after train is made flexible enough to also accept a
-# single row.
 class GaussianNaiveBayes(object):
     def __init__(self):
         self.targets = OrderedDict()
@@ -170,6 +166,10 @@ class GaussianNaiveBayes(object):
     def prev_unique_targets(self):
         return self.targets.keys()
 
+    # Get summary statistic(e.g. mean or variance) index
+    def get_summary_statistic_index(self, target):
+        return self.prev_unique_targets.index(target)
+
     #np.mean(li)
     #np.variance(li)
 
@@ -177,12 +177,8 @@ class GaussianNaiveBayes(object):
 
     # Another implementation would be to use the sum of the values and count
     # of a given feature
-    def mean(self, prev_mean, t_count, curr_value):
+    def _mean(self, prev_mean, t_count, curr_value):
         return ((t_count - 1) * prev_mean + curr_value) / float(t_count)
-
-    # Get summary statistic(e.g. mean or variance) index
-    def get_summary_statistic_index(self, target):
-        return self.prev_unique_targets.index(target)
 
     # See incremental algorithm:
     # http://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
@@ -191,20 +187,12 @@ class GaussianNaiveBayes(object):
     # Saves us from having to store all values of a given feature!!!
     # This is an example of the benefit of being able to derive a recursive
     # definition of a mathematical relation.
-    def variance(self, prev_variance, t_count, curr_value, curr_mean, prev_mean):
+    def _variance(self, prev_variance, t_count, curr_value, curr_mean, prev_mean):
         k = (t_count - 1) * prev_variance
         numerator = k + (curr_value - prev_mean) * (curr_value - curr_mean)
         return numerator / float(t_count)
 
-    # Allows bulk fiting
-    def fit(self, data, targets):
-        if len(data) != len(targets):
-            raise ValueError("data and target don't correspond")
-        for row, target in zip(data, targets):
-            self.fit_row(row, target)
-
-
-    def fit_row(self, row, target):
+    def _fit_row(self, row, target):
         '''
         # On initial fit
         if not self.targets:
@@ -239,8 +227,8 @@ class GaussianNaiveBayes(object):
         # Perhaps change self.prev_means in self.means, use new_mean instead of mean
         # Do the same for variance.
         for m, value in enumerate(row):
-            mean = self.mean(self.prev_means[ss_ind][m], t_count, value)
-            variance = self.variance(self.prev_variances[ss_ind][m],
+            mean = self._mean(self.prev_means[ss_ind][m], t_count, value)
+            variance = self._variance(self.prev_variances[ss_ind][m],
                                      t_count, value, mean,
                                      self.prev_means[ss_ind][m])
             # update old values
@@ -252,7 +240,13 @@ class GaussianNaiveBayes(object):
             # values?
             #prev_variances[m] = np.var(prev_variances[m] + np.var(value))
 
-    def calculate_gaussian_evidence_likelyhood(self, value, n, m):
+    def fit(self, data, targets):
+        if len(data) != len(targets):
+            raise ValueError("data and target don't correspond")
+        for row, target in zip(data, targets):
+            self._fit_row(row, target)
+
+    def _calculate_gaussian_evidence_likelyhood(self, value, n, m):
         # If not floatified, will return nan instead of zerodiv error.
         feature_variance = self.prev_variances[n][m]
         feature_mean = self.prev_means[n][m]
@@ -280,12 +274,12 @@ class GaussianNaiveBayes(object):
 
     # non_normalized_posterior
     # Actually this is posterior*normalizing constant
-    def calculate_posterior(self, row, target, n):
+    def _calculate_posterior(self, row, target, n):
         t_count = self.targets[target]
         prior = t_count / float(sum(self.targets.values()))
         evidence_likelyhoods = []
         for m, value in enumerate(row):
-            gel = self.calculate_gaussian_evidence_likelyhood(value, n, m)
+            gel = self._calculate_gaussian_evidence_likelyhood(value, n, m)
             # A correction on the naive bayes alg to avoid incapability
             # of prediction in case of one or more zero values evidence
             # likelyhoods per target
@@ -300,11 +294,10 @@ class GaussianNaiveBayes(object):
         mult = lambda a, b: a * b
         return prior * functools.reduce(mult, evidence_likelyhoods)
 
-
-    def predict_row(self, row):
+    def _predict_row(self, row):
         posteriors = {}
         for n, target in enumerate(self.prev_unique_targets):
-            posteriors[target] = self.calculate_posterior(row, target, n)
+            posteriors[target] = self._calculate_posterior(row, target, n)
 
         result = max(zip(posteriors.values(), posteriors.keys()))
         print posteriors
@@ -316,7 +309,7 @@ class GaussianNaiveBayes(object):
 
         result = []
         for row in data:
-            result.append(self.predict_row(row))
+            result.append(self._predict_row(row))
         return np.array(result)
 
 
@@ -332,46 +325,3 @@ sk_gnb.fit(data_train, target_train)
 
 gnb.predict(data_test)
 sk_gnb.predict(data_test)
-
-
-'''
-ird_train = iris.data[:149]
-irt_train = iris.target[:149]
-
-ird_test = iris.data[-1]
-irt_test = iris.target[-1]
-
-
-irrd_train = np.array([iris.data[0], iris.data[1], iris.data[50]])
-irrt_train = np.array([iris.target[0], iris.target[1], iris.target[50]])
-
-irrd_test = iris.data[2]
-
-irrt_test = iris.target[2]
-'''
-
-
-'''
-gnb.train_row(irrd_train[0], irrt_train[0])
-
-gnb.train_row(irrd_train[1], irrt_train[1])
-
-gnb.train_row(irrd_train[2], irrt_train[2])
-'''
-'''
-gnb.train(irrd_train, irrt_train)
-#gnb.train(ird_train, irt_train)
-skgnb = sklearn.naive_bayes.GaussianNB()
-fi = skgnb.fit(irrd_train, irrt_train)
-'''
-
-
-
-'''
-gnb.predict(iris.data[0])
-
-skgnb = sklearn.naive_bayes.GaussianNB()
-skgnb.fit(ird_train, irt_train)
-
-skgnb.predict(iris.data[0])
-'''
