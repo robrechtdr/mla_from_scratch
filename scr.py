@@ -170,11 +170,6 @@ class GaussianNaiveBayes(object):
     def get_summary_statistic_index(self, target):
         return self.prev_unique_targets.index(target)
 
-    #np.mean(li)
-    #np.variance(li)
-
-    # Now we just need to calculate the initial mean and variance values
-
     # Another implementation would be to use the sum of the values and count
     # of a given feature
     def _mean(self, prev_mean, t_count, value):
@@ -193,18 +188,6 @@ class GaussianNaiveBayes(object):
         return numerator / float(t_count)
 
     def _fit_row(self, row, target):
-        '''
-        # On initial fit
-        if not self.targets:
-            self.means.append([])
-            self.variances.append([])
-            for value in row:
-                # Mean of only one value is the value
-                self.means[0].append(value)
-                # Variance of only one element is 0
-                self.variances[0].append(0)
-
-        '''
         # Only on first occurence of a new target value
         if target not in self.prev_unique_targets:
             ind = len(self.targets)
@@ -234,10 +217,6 @@ class GaussianNaiveBayes(object):
             self.means[ss_ind][m] = curr_mean
             self.variances[ss_ind][m] = curr_variance
 
-            # can you do this mathemat?
-            # No!!! But isn't there a way to calc witout keeping all the single
-            # values?
-            #variances[m] = np.var(variances[m] + np.var(value))
 
     def fit(self, data, targets):
         if len(data) != len(targets):
