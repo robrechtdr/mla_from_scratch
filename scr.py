@@ -163,12 +163,12 @@ class GaussianNaiveBayes(object):
         self.means = []
 
     @property
-    def prev_unique_targets(self):
+    def unique_targets(self):
         return self.targets.keys()
 
     # Get summary statistic(e.g. mean or variance) index
     def get_summary_statistic_index(self, target):
-        return self.prev_unique_targets.index(target)
+        return self.unique_targets.index(target)
 
     # Another implementation would be to use the sum of the values and count
     # of a given feature
@@ -189,7 +189,7 @@ class GaussianNaiveBayes(object):
 
     def _fit_row(self, row, target):
         # Only on first occurence of a new target value
-        if target not in self.prev_unique_targets:
+        if target not in self.unique_targets:
             ind = len(self.targets)
             self.means.append([])
             self.variances.append([])
@@ -273,7 +273,7 @@ class GaussianNaiveBayes(object):
 
     def _predict_row(self, row):
         nn_posteriors = {}
-        for n, target in enumerate(self.prev_unique_targets):
+        for n, target in enumerate(self.unique_targets):
             nn_posteriors[target] = self._calc_non_norm_posterior(row, target, n)
 
         result = max(zip(nn_posteriors.values(), nn_posteriors.keys()))
